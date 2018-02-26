@@ -131,7 +131,7 @@ func (cache *schedulerCache) AssumePod(pod *v1.Pod) error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if _, ok := cache.podStates[key]; ok {
-		return fmt.Errorf("pod %v is not in the cache, so can't be assumed", key)
+		return fmt.Errorf("pod %v is in the cache, so can't be assumed", key)
 	}
 
 	cache.addPod(pod)
@@ -257,7 +257,7 @@ func (cache *schedulerCache) AddPod(pod *v1.Pod) error {
 		}
 		cache.podStates[key] = ps
 	default:
-		return fmt.Errorf("pod %v was already in added state.", key)
+		return fmt.Errorf("pod %v was already in added state", key)
 	}
 	return nil
 }

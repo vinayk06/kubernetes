@@ -23,7 +23,7 @@ DOCKER_OPTS=${DOCKER_OPTS:-""}
 DOCKER=(docker ${DOCKER_OPTS})
 DOCKERIZE_KUBELET=${DOCKERIZE_KUBELET:-""}
 ALLOW_PRIVILEGED=${ALLOW_PRIVILEGED:-""}
-ALLOW_SECURITY_CONTEXT=${ALLOW_SECURITY_CONTEXT:-""}
+DENY_SECURITY_CONTEXT_ADMISSION=${DENY_SECURITY_CONTEXT_ADMISSION:-""}
 PSP_ADMISSION=${PSP_ADMISSION:-""}
 NODE_ADMISSION=${NODE_ADMISSION:-""}
 RUNTIME_CONFIG=${RUNTIME_CONFIG:-""}
@@ -57,15 +57,16 @@ EVICTION_PRESSURE_TRANSITION_PERIOD=${EVICTION_PRESSURE_TRANSITION_PERIOD:-"1m"}
 # and we don't know the IP of the DNS pod to pass in as --cluster-dns.
 # To set this up by hand, set this flag and change DNS_SERVER_IP.
 # Note also that you need API_HOST (defined above) for correct DNS.
-KUBEPROXY_MODE=${KUBEPROXY_MODE:-""}
+KUBE_PROXY_MODE=${KUBE_PROXY_MODE:-""}
 ENABLE_CLUSTER_DNS=${KUBE_ENABLE_CLUSTER_DNS:-true}
 DNS_SERVER_IP=${KUBE_DNS_SERVER_IP:-10.0.0.10}
 DNS_DOMAIN=${KUBE_DNS_NAME:-"cluster.local"}
 KUBECTL=${KUBECTL:-cluster/kubectl.sh}
-WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-20}
+WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-60}
 ENABLE_DAEMON=${ENABLE_DAEMON:-false}
 HOSTNAME_OVERRIDE=${HOSTNAME_OVERRIDE:-"127.0.0.1"}
 EXTERNAL_CLOUD_PROVIDER=${EXTERNAL_CLOUD_PROVIDER:-false}
+EXTERNAL_CLOUD_PROVIDER_BINARY=${EXTERNAL_CLOUD_PROVIDER_BINARY:-""}
 CLOUD_PROVIDER=${CLOUD_PROVIDER:-""}
 CLOUD_CONFIG=${CLOUD_CONFIG:-""}
 FEATURE_GATES=${FEATURE_GATES:-"AllAlpha=false"}
@@ -97,7 +98,8 @@ export KUBE_CACHE_MUTATION_DETECTOR
 KUBE_PANIC_WATCH_DECODE_ERROR="${KUBE_PANIC_WATCH_DECODE_ERROR:-true}"
 export KUBE_PANIC_WATCH_DECODE_ERROR
 
-ADMISSION_CONTROL=${ADMISSION_CONTROL:-""}
+ENABLE_ADMISSION_PLUGINS=${ENABLE_ADMISSION_PLUGINS:-""}
+DISABLE_ADMISSION_PLUGINS=${DISABLE_ADMISSION_PLUGINS:-""}
 ADMISSION_CONTROL_CONFIG_FILE=${ADMISSION_CONTROL_CONFIG_FILE:-""}
 
 # START_MODE can be 'all', 'kubeletonly', or 'nokubelet'
@@ -119,8 +121,15 @@ if [ "${CLOUD_PROVIDER}" == "openstack" ]; then
 fi
 
 # set feature gates if using ipvs mode
-if [ "${KUBEPROXY_MODE}" == "ipvs" ]; then
-    FEATURE_GATES="$FEATURE_GATES,SupportIPVSProxyMode=true"
+if [ "${KUBE_PROXY_MODE}" == "ipvs" ]; then
+    # If required kernel modules are not available, fall back to iptables.
+    sudo modprobe -a ip_vs ip_vs_rr ip_vs_wrr ip_vs_sh nf_conntrack_ipv4
+    if [[ $? -eq 0 ]]; then
+      FEATURE_GATES="${FEATURE_GATES},SupportIPVSProxyMode=true"
+    else
+      echo "Required kernel modules for ipvs not found. Falling back to iptables mode."
+      KUBE_PROXY_MODE=iptables
+    fi
 fi
 
 # set feature gates if enable Pod priority and preemption
@@ -416,7 +425,7 @@ function set_service_accounts {
 
 function start_apiserver {
     security_admission=""
-    if [[ -z "${ALLOW_SECURITY_CONTEXT}" ]]; then
+    if [[ -n "${DENY_SECURITY_CONTEXT_ADMISSION}" ]]; then
       security_admission=",SecurityContextDeny"
     fi
     if [[ -n "${PSP_ADMISSION}" ]]; then
@@ -432,14 +441,12 @@ function start_apiserver {
       fi
       RUNTIME_CONFIG+="scheduling.k8s.io/v1alpha1=true"
     fi
-    
+
 
     # Admission Controllers to invoke prior to persisting objects in cluster
     #
-    # ResourceQuota must come last, or a creation is recorded, but the pod may be forbidden.
-    ADMISSION_CONTROL=Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount${security_admission},DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,PodPreset
-    # This is the default dir and filename where the apiserver will generate a self-signed cert
-    # which should be able to be used as the CA to verify itself
+    # The order defined here dose not matter.
+    ENABLE_ADMISSION_PLUGINS=Initializers,LimitRanger,ServiceAccount${security_admission},DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,PodPreset,StorageObjectInUseProtection
 
     audit_arg=""
     APISERVER_BASIC_AUDIT_LOG=""
@@ -473,14 +480,14 @@ function start_apiserver {
       priv_arg="--allow-privileged "
     fi
 
-    if [[ ${ADMISSION_CONTROL} == *"Initializers"* ]]; then
+    if [[ ${ENABLE_ADMISSION_PLUGINS} == *"Initializers"* ]]; then
         if [[ -n "${RUNTIME_CONFIG}" ]]; then
           RUNTIME_CONFIG+=","
         fi
         RUNTIME_CONFIG+="admissionregistration.k8s.io/v1alpha1"
     fi
 
-    if [[ ${ADMISSION_CONTROL} == *"PodPreset"* ]]; then
+    if [[ ${ENABLE_ADMISSION_PLUGINS} == *"PodPreset"* ]]; then
         if [[ -n "${RUNTIME_CONFIG}" ]]; then
             RUNTIME_CONFIG+=","
         fi
@@ -496,10 +503,10 @@ function start_apiserver {
     # is set to 127.0.0.1
     advertise_address=""
     if [[ "${API_HOST_IP}" != "127.0.0.1" ]]; then
-        advertise_address="--advertise_address=${API_HOST_IP}"
+        advertise_address="--advertise-address=${API_HOST_IP}"
     fi
     if [[ "${ADVERTISE_ADDRESS}" != "" ]] ; then
-        advertise_address="--advertise_address=${ADVERTISE_ADDRESS}"
+        advertise_address="--advertise-address=${ADVERTISE_ADDRESS}"
     fi
 
     # Create CA signers
@@ -548,13 +555,13 @@ function start_apiserver {
       --client-ca-file="${CERT_DIR}/client-ca.crt" \
       --service-account-key-file="${SERVICE_ACCOUNT_KEY}" \
       --service-account-lookup="${SERVICE_ACCOUNT_LOOKUP}" \
-      --admission-control="${ADMISSION_CONTROL}" \
+      --enable-admission-plugins="${ENABLE_ADMISSION_PLUGINS}" \
+      --disable-admission-plugins="${DISABLE_ADMISSION_PLUGINS}" \
       --admission-control-config-file="${ADMISSION_CONTROL_CONFIG_FILE}" \
       --bind-address="${API_BIND_ADDR}" \
       --secure-port="${API_SECURE_PORT}" \
       --tls-cert-file="${CERT_DIR}/serving-kube-apiserver.crt" \
       --tls-private-key-file="${CERT_DIR}/serving-kube-apiserver.key" \
-      --tls-ca-file="${CERT_DIR}/server-ca.crt" \
       --insecure-bind-address="${API_HOST_IP}" \
       --insecure-port="${API_PORT}" \
       --storage-backend=${STORAGE_BACKEND} \
@@ -648,7 +655,7 @@ function start_cloud_controller_manager {
     fi
 
     CLOUD_CTLRMGR_LOG=${LOG_DIR}/cloud-controller-manager.log
-    ${CONTROLPLANE_SUDO} "${GO_OUT}/hyperkube" alpha cloud-controller-manager \
+    ${CONTROLPLANE_SUDO} ${EXTERNAL_CLOUD_PROVIDER_BINARY:-"${GO_OUT}/hyperkube" cloud-controller-manager} \
       --v=${LOG_LEVEL} \
       --vmodule="${LOG_SPEC}" \
       ${node_cidr_args} \
@@ -796,7 +803,7 @@ function start_kubelet {
         --privileged=true \
         -i \
         --cidfile=$KUBELET_CIDFILE \
-        gcr.io/google_containers/kubelet \
+        k8s.gcr.io/kubelet \
         /kubelet --v=${LOG_LEVEL} --containerized ${priv_arg}--chaos-chance="${CHAOS_CHANCE}" --pod-manifest-path="${POD_MANIFEST_PATH}" --hostname-override="${HOSTNAME_OVERRIDE}" ${cloud_config_arg} \ --address="127.0.0.1" --kubeconfig "$CERT_DIR"/kubelet.kubeconfig --port="$KUBELET_PORT"  --enable-controller-attach-detach="${ENABLE_CONTROLLER_ATTACH_DETACH}" &> $KUBELET_LOG &
     fi
 }
@@ -811,12 +818,8 @@ clientConnection:
   kubeconfig: ${CERT_DIR}/kube-proxy.kubeconfig
 hostnameOverride: ${HOSTNAME_OVERRIDE}
 featureGates: ${FEATURE_GATES}
-mode: ${KUBEPROXY_MODE}
+mode: ${KUBE_PROXY_MODE}
 EOF
-    if [ "${KUBEPROXY_MODE}" == "ipvs" ]; then
-	# Load kernel modules required by IPVS proxier
-        sudo modprobe -a ip_vs ip_vs_rr ip_vs_wrr ip_vs_sh nf_conntrack_ipv4
-    fi
 
     sudo "${GO_OUT}/hyperkube" proxy \
       --config=/tmp/kube-proxy.yaml \

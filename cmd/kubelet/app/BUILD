@@ -10,7 +10,6 @@ go_test(
     name = "go_default_test",
     srcs = ["server_test.go"],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/cmd/kubelet/app",
 )
 
 go_library(
@@ -73,7 +72,7 @@ go_library(
         "//pkg/kubelet:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig/scheme:go_default_library",
-        "//pkg/kubelet/apis/kubeletconfig/v1alpha1:go_default_library",
+        "//pkg/kubelet/apis/kubeletconfig/v1beta1:go_default_library",
         "//pkg/kubelet/cadvisor:go_default_library",
         "//pkg/kubelet/certificate:go_default_library",
         "//pkg/kubelet/certificate/bootstrap:go_default_library",
@@ -85,6 +84,7 @@ go_library(
         "//pkg/kubelet/eviction:go_default_library",
         "//pkg/kubelet/eviction/api:go_default_library",
         "//pkg/kubelet/kubeletconfig:go_default_library",
+        "//pkg/kubelet/kubeletconfig/configfiles:go_default_library",
         "//pkg/kubelet/network:go_default_library",
         "//pkg/kubelet/network/cni:go_default_library",
         "//pkg/kubelet/network/kubenet:go_default_library",
@@ -92,6 +92,8 @@ go_library(
         "//pkg/kubelet/server/streaming:go_default_library",
         "//pkg/kubelet/types:go_default_library",
         "//pkg/util/configz:go_default_library",
+        "//pkg/util/filesystem:go_default_library",
+        "//pkg/util/flag:go_default_library",
         "//pkg/util/flock:go_default_library",
         "//pkg/util/io:go_default_library",
         "//pkg/util/mount:go_default_library",
@@ -131,6 +133,7 @@ go_library(
         "//pkg/volume/vsphere_volume:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

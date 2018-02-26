@@ -26,7 +26,7 @@ import (
 
 // ClientConnectionConfiguration contains details for constructing a client.
 type ClientConnectionConfiguration struct {
-	// kubeConfigFile is the path to a kubeconfig file.
+	// kubeconfig is the path to a kubeconfig file.
 	KubeConfigFile string
 	// acceptContentTypes defines the Accept header sent by clients when connecting to a server, overriding the
 	// default value of 'application/json'. This field will control all connections to the server used by a particular
@@ -97,14 +97,8 @@ type KubeProxyConntrackConfiguration struct {
 type KubeProxyConfiguration struct {
 	metav1.TypeMeta
 
-	// featureGates is a comma-separated list of key=value pairs that control
-	// which alpha/beta features are enabled.
-	//
-	// TODO this really should be a map but that requires refactoring all
-	// components to use config files because local-up-cluster.sh only supports
-	// the --feature-gates flag right now, which is comma-separated key=value
-	// pairs.
-	FeatureGates string
+	// featureGates is a map of feature names to bools that enable or disable alpha/experimental features.
+	FeatureGates map[string]bool
 
 	// bindAddress is the IP address for the proxy server to serve on (set to 0.0.0.0
 	// for all interfaces)
@@ -152,13 +146,19 @@ type KubeProxyConfiguration struct {
 	ConfigSyncPeriod metav1.Duration
 }
 
-// Currently, four modes of proxying are available total: 'userspace' (older, stable), 'iptables'
-// (newer, faster), 'ipvs', and 'kernelspace' (Windows only, newer).
+// Currently, three modes of proxy are available in Linux platform: 'userspace' (older, going to be EOL), 'iptables'
+// (newer, faster), 'ipvs'(newest, better in performance and scalability).
 //
-// If blank, use the best-available proxy (currently iptables, but may change in
-// future versions). If the iptables proxy is selected, regardless of how, but
-// the system's kernel or iptables versions are insufficient, this always falls
-// back to the userspace proxy.
+// Two modes of proxy are available in Windows platform: 'userspace'(older, stable) and 'kernelspace' (newer, faster).
+//
+// In Linux platform, if proxy mode is blank, use the best-available proxy (currently iptables, but may change in the
+// future). If the iptables proxy is selected, regardless of how, but the system's kernel or iptables versions are
+// insufficient, this always falls back to the userspace proxy. IPVS mode will be enabled when proxy mode is set to 'ipvs',
+// and the fall back path is firstly iptables and then userspace.
+
+// In Windows platform, if proxy mode is blank, use the best-available proxy (currently userspace, but may change in the
+// future). If winkernel proxy is selected, regardless of how, but the Windows kernel can't support this mode of proxy,
+// this always falls back to the userspace proxy.
 type ProxyMode string
 
 const (

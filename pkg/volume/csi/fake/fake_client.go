@@ -23,7 +23,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	csipb "github.com/container-storage-interface/spec/lib/go/csi"
+	csipb "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	grpctx "golang.org/x/net/context"
 )
 
@@ -42,27 +42,18 @@ func (f *IdentityClient) SetNextError(err error) {
 	f.nextErr = err
 }
 
-// GetSupportedVersions returns supported version
-func (f *IdentityClient) GetSupportedVersions(ctx grpctx.Context, req *csipb.GetSupportedVersionsRequest, opts ...grpc.CallOption) (*csipb.GetSupportedVersionsResponse, error) {
-	// short circuit with an error
-	if f.nextErr != nil {
-		return nil, f.nextErr
-	}
-
-	rsp := &csipb.GetSupportedVersionsResponse{
-		SupportedVersions: []*csipb.Version{
-			{Major: 0, Minor: 0, Patch: 1},
-			{Major: 0, Minor: 1, Patch: 0},
-			{Major: 1, Minor: 0, Patch: 0},
-			{Major: 1, Minor: 0, Patch: 1},
-			{Major: 1, Minor: 1, Patch: 1},
-		},
-	}
-	return rsp, nil
-}
-
 // GetPluginInfo returns plugin info
 func (f *IdentityClient) GetPluginInfo(ctx context.Context, in *csipb.GetPluginInfoRequest, opts ...grpc.CallOption) (*csipb.GetPluginInfoResponse, error) {
+	return nil, nil
+}
+
+// GetPluginCapabilities implements csi method
+func (f *IdentityClient) GetPluginCapabilities(ctx context.Context, in *csipb.GetPluginCapabilitiesRequest, opts ...grpc.CallOption) (*csipb.GetPluginCapabilitiesResponse, error) {
+	return nil, nil
+}
+
+// Probe implements csi method
+func (f *IdentityClient) Probe(ctx context.Context, in *csipb.ProbeRequest, opts ...grpc.CallOption) (*csipb.ProbeResponse, error) {
 	return nil, nil
 }
 
@@ -103,21 +94,10 @@ func (f *NodeClient) NodePublishVolume(ctx grpctx.Context, req *csipb.NodePublis
 	fsTypes := "ext4|xfs|zfs"
 	fsType := req.GetVolumeCapability().GetMount().GetFsType()
 	if !strings.Contains(fsTypes, fsType) {
-		return nil, errors.New("invlid fstype")
+		return nil, errors.New("invalid fstype")
 	}
 	f.nodePublishedVolumes[req.GetVolumeId()] = req.GetTargetPath()
 	return &csipb.NodePublishVolumeResponse{}, nil
-}
-
-// NodeProbe implements csi NodeProbe
-func (f *NodeClient) NodeProbe(ctx context.Context, req *csipb.NodeProbeRequest, opts ...grpc.CallOption) (*csipb.NodeProbeResponse, error) {
-	if f.nextErr != nil {
-		return nil, f.nextErr
-	}
-	if req.Version == nil {
-		return nil, errors.New("missing version")
-	}
-	return &csipb.NodeProbeResponse{}, nil
 }
 
 // NodeUnpublishVolume implements csi method
@@ -136,13 +116,23 @@ func (f *NodeClient) NodeUnpublishVolume(ctx context.Context, req *csipb.NodeUnp
 	return &csipb.NodeUnpublishVolumeResponse{}, nil
 }
 
-// GetNodeID implements method
-func (f *NodeClient) GetNodeID(ctx context.Context, in *csipb.GetNodeIDRequest, opts ...grpc.CallOption) (*csipb.GetNodeIDResponse, error) {
+// NodeGetId implements method
+func (f *NodeClient) NodeGetId(ctx context.Context, in *csipb.NodeGetIdRequest, opts ...grpc.CallOption) (*csipb.NodeGetIdResponse, error) {
 	return nil, nil
 }
 
 // NodeGetCapabilities implements csi method
 func (f *NodeClient) NodeGetCapabilities(ctx context.Context, in *csipb.NodeGetCapabilitiesRequest, opts ...grpc.CallOption) (*csipb.NodeGetCapabilitiesResponse, error) {
+	return nil, nil
+}
+
+// NodeStageVolume implements csi method
+func (f *NodeClient) NodeStageVolume(ctx context.Context, in *csipb.NodeStageVolumeRequest, opts ...grpc.CallOption) (*csipb.NodeStageVolumeResponse, error) {
+	return nil, nil
+}
+
+// NodeUnstageVolume implements csi method
+func (f *NodeClient) NodeUnstageVolume(ctx context.Context, in *csipb.NodeUnstageVolumeRequest, opts ...grpc.CallOption) (*csipb.NodeUnstageVolumeResponse, error) {
 	return nil, nil
 }
 
@@ -221,10 +211,5 @@ func (f *ControllerClient) ListVolumes(ctx context.Context, in *csipb.ListVolume
 
 // GetCapacity implements csi method
 func (f *ControllerClient) GetCapacity(ctx context.Context, in *csipb.GetCapacityRequest, opts ...grpc.CallOption) (*csipb.GetCapacityResponse, error) {
-	return nil, nil
-}
-
-// ControllerProbe implements csi method
-func (f *ControllerClient) ControllerProbe(ctx context.Context, in *csipb.ControllerProbeRequest, opts ...grpc.CallOption) (*csipb.ControllerProbeResponse, error) {
 	return nil, nil
 }

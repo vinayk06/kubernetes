@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 const (
@@ -45,22 +46,22 @@ const (
 	availabilitySetIDTemplate   = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/availabilitySets/%s"
 	frontendIPConfigIDTemplate  = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/%s/frontendIPConfigurations/%s"
 	backendPoolIDTemplate       = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/%s/backendAddressPools/%s"
-	loadBalancerRuleIDTemplate  = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/%s/loadBalancingRules/%s"
 	loadBalancerProbeIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/%s/probes/%s"
-	securityRuleIDTemplate      = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/networkSecurityGroups/%s/securityRules/%s"
 
 	// InternalLoadBalancerNameSuffix is load balancer posfix
 	InternalLoadBalancerNameSuffix = "-internal"
 
 	// nodeLabelRole specifies the role of a node
 	nodeLabelRole = "kubernetes.io/role"
+
+	storageAccountNameMaxLength = 24
 )
 
 var errNotInVMSet = errors.New("vm is not in the vmset")
 var providerIDRE = regexp.MustCompile(`^` + CloudProviderName + `://(?:.*)/Microsoft.Compute/virtualMachines/(.+)$`)
 
-// returns the full identifier of a machine
-func (az *Cloud) getMachineID(machineName string) string {
+// getStandardMachineID returns the full identifier of a virtual machine.
+func (az *Cloud) getStandardMachineID(machineName string) string {
 	return fmt.Sprintf(
 		machineIDTemplate,
 		az.SubscriptionID,
@@ -97,16 +98,6 @@ func (az *Cloud) getBackendPoolID(lbName, backendPoolName string) string {
 		backendPoolName)
 }
 
-// returns the full identifier of a loadbalancer rule.
-func (az *Cloud) getLoadBalancerRuleID(lbName, lbRuleName string) string {
-	return fmt.Sprintf(
-		loadBalancerRuleIDTemplate,
-		az.SubscriptionID,
-		az.ResourceGroup,
-		lbName,
-		lbRuleName)
-}
-
 // returns the full identifier of a loadbalancer probe.
 func (az *Cloud) getLoadBalancerProbeID(lbName, lbRuleName string) string {
 	return fmt.Sprintf(
@@ -117,28 +108,9 @@ func (az *Cloud) getLoadBalancerProbeID(lbName, lbRuleName string) string {
 		lbRuleName)
 }
 
-// returns the full identifier of a network security group security rule.
-func (az *Cloud) getSecurityRuleID(securityRuleName string) string {
-	return fmt.Sprintf(
-		securityRuleIDTemplate,
-		az.SubscriptionID,
-		az.ResourceGroup,
-		az.SecurityGroupName,
-		securityRuleName)
-}
-
-// returns the full identifier of a publicIPAddress.
-func (az *Cloud) getpublicIPAddressID(pipName string) string {
-	return fmt.Sprintf(
-		publicIPAddressIDTemplate,
-		az.SubscriptionID,
-		az.ResourceGroup,
-		pipName)
-}
-
 func (az *Cloud) mapLoadBalancerNameToVMSet(lbName string, clusterName string) (vmSetName string) {
 	vmSetName = strings.TrimSuffix(lbName, InternalLoadBalancerNameSuffix)
-	if strings.EqualFold(clusterName, lbName) {
+	if strings.EqualFold(clusterName, vmSetName) {
 		vmSetName = az.vmSet.GetPrimaryVMSetName()
 	}
 
@@ -160,7 +132,7 @@ func (az *Cloud) getLoadBalancerName(clusterName string, vmSetName string, isInt
 	return lbNamePrefix
 }
 
-// isMasterNode returns returns true is the node has a master role label.
+// isMasterNode returns true if the node has a master role label.
 // The master role is determined by looking for:
 // * a kubernetes.io/role="master" label
 func isMasterNode(node *v1.Node) bool {
@@ -221,6 +193,10 @@ func getPrimaryInterfaceID(machine compute.VirtualMachine) (string, error) {
 }
 
 func getPrimaryIPConfig(nic network.Interface) (*network.InterfaceIPConfiguration, error) {
+	if nic.IPConfigurations == nil {
+		return nil, fmt.Errorf("nic.IPConfigurations for nic (nicname=%q) is nil", *nic.Name)
+	}
+
 	if len(*nic.IPConfigurations) == 1 {
 		return &((*nic.IPConfigurations)[0]), nil
 	}
@@ -231,7 +207,7 @@ func getPrimaryIPConfig(nic network.Interface) (*network.InterfaceIPConfiguratio
 		}
 	}
 
-	return nil, fmt.Errorf("failed to determine the determine primary ipconfig. nicname=%q", *nic.Name)
+	return nil, fmt.Errorf("failed to determine the primary ipconfig. nicname=%q", *nic.Name)
 }
 
 func isInternalLoadBalancer(lb *network.LoadBalancer) bool {
@@ -465,7 +441,7 @@ func (as *availabilitySet) GetIPByNodeName(name, vmSetName string) (string, erro
 	return targetIP, nil
 }
 
-// getAgentPoolAvailabiliySets lists the virtual machines for for the resource group and then builds
+// getAgentPoolAvailabiliySets lists the virtual machines for the resource group and then builds
 // a list of availability sets that match the nodes available to k8s.
 func (as *availabilitySet) getAgentPoolAvailabiliySets(nodes []*v1.Node) (agentPoolAvailabilitySets *[]string, err error) {
 	vms, err := as.VirtualMachineClientListWithRetry()
@@ -684,4 +660,14 @@ func (as *availabilitySet) EnsureHostsInPool(serviceName string, nodes []*v1.Nod
 func (as *availabilitySet) EnsureBackendPoolDeleted(poolID, vmSetName string) error {
 	// Do nothing for availability set.
 	return nil
+}
+
+// get a storage account by UUID
+func generateStorageAccountName(accountNamePrefix string) string {
+	uniqueID := strings.Replace(string(uuid.NewUUID()), "-", "", -1)
+	accountName := strings.ToLower(accountNamePrefix + uniqueID)
+	if len(accountName) > storageAccountNameMaxLength {
+		return accountName[:storageAccountNameMaxLength-1]
+	}
+	return accountName
 }

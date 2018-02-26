@@ -20,7 +20,6 @@ import (
 	"errors"
 	"testing"
 
-	csipb "github.com/container-storage-interface/spec/lib/go/csi"
 	grpctx "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	api "k8s.io/api/core/v1"
@@ -37,51 +36,6 @@ func setupClient(t *testing.T) *csiDriverClient {
 	client.ctrlClient = fake.NewControllerClient()
 
 	return client
-}
-
-func TestClientAssertSupportedVersion(t *testing.T) {
-	testCases := []struct {
-		testName string
-		ver      *csipb.Version
-		mustFail bool
-		err      error
-	}{
-		{testName: "supported version", ver: &csipb.Version{Major: 0, Minor: 1, Patch: 0}},
-		{testName: "unsupported version", ver: &csipb.Version{Major: 0, Minor: 0, Patch: 0}, mustFail: true},
-		{testName: "grpc error", ver: &csipb.Version{Major: 0, Minor: 1, Patch: 0}, mustFail: true, err: errors.New("grpc error")},
-	}
-
-	for _, tc := range testCases {
-		t.Log("case: ", tc.testName)
-		client := setupClient(t)
-		client.idClient.(*fake.IdentityClient).SetNextError(tc.err)
-		err := client.AssertSupportedVersion(grpctx.Background(), tc.ver)
-		if tc.mustFail && err == nil {
-			t.Error("must fail, but err = nil")
-		}
-	}
-}
-
-func TestClientNodeProbe(t *testing.T) {
-	testCases := []struct {
-		testName string
-		ver      *csipb.Version
-		mustFail bool
-		err      error
-	}{
-		{testName: "supported version", ver: &csipb.Version{Major: 0, Minor: 1, Patch: 0}},
-		{testName: "grpc error", ver: &csipb.Version{Major: 0, Minor: 1, Patch: 0}, mustFail: true, err: errors.New("grpc error")},
-	}
-
-	for _, tc := range testCases {
-		t.Log("case: ", tc.testName)
-		client := setupClient(t)
-		client.nodeClient.(*fake.NodeClient).SetNextError(tc.err)
-		err := client.NodeProbe(grpctx.Background(), tc.ver)
-		if tc.mustFail && err == nil {
-			t.Error("must fail, but err = nil")
-		}
-	}
 }
 
 func TestClientNodePublishVolume(t *testing.T) {
@@ -103,7 +57,7 @@ func TestClientNodePublishVolume(t *testing.T) {
 	client := setupClient(t)
 
 	for _, tc := range testCases {
-		t.Log("case: ", tc.name)
+		t.Logf("test case: %s", tc.name)
 		client.nodeClient.(*fake.NodeClient).SetNextError(tc.err)
 		err := client.NodePublishVolume(
 			grpctx.Background(),
@@ -113,11 +67,12 @@ func TestClientNodePublishVolume(t *testing.T) {
 			api.ReadWriteOnce,
 			map[string]string{"device": "/dev/null"},
 			map[string]string{"attr0": "val0"},
+			map[string]string{},
 			tc.fsType,
 		)
 
 		if tc.mustFail && err == nil {
-			t.Error("must fail, but err is nil: ", err)
+			t.Error("test must fail, but err is nil")
 		}
 	}
 }
@@ -139,11 +94,11 @@ func TestClientNodeUnpublishVolume(t *testing.T) {
 	client := setupClient(t)
 
 	for _, tc := range testCases {
-		t.Log("case: ", tc.name)
+		t.Logf("test case: %s", tc.name)
 		client.nodeClient.(*fake.NodeClient).SetNextError(tc.err)
 		err := client.NodeUnpublishVolume(grpctx.Background(), tc.volID, tc.targetPath)
 		if tc.mustFail && err == nil {
-			t.Error("must fail, but err is nil: ", err)
+			t.Error("test must fail, but err is nil")
 		}
 	}
 }

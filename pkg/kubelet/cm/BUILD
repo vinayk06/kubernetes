@@ -123,7 +123,7 @@ go_library(
             "//pkg/apis/core/v1/helper:go_default_library",
             "//pkg/apis/core/v1/helper/qos:go_default_library",
             "//pkg/kubelet/cadvisor:go_default_library",
-            "//pkg/kubelet/cm/deviceplugin:go_default_library",
+            "//pkg/kubelet/cm/devicemanager:go_default_library",
             "//pkg/kubelet/cm/util:go_default_library",
             "//pkg/kubelet/events:go_default_library",
             "//pkg/kubelet/metrics:go_default_library",
@@ -192,7 +192,6 @@ go_test(
         "//conditions:default": [],
     }),
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/kubelet/cm",
     deps = select({
         "@io_bazel_rules_go//go/platform:linux": [
             "//pkg/kubelet/eviction/api:go_default_library",
@@ -219,7 +218,7 @@ filegroup(
         ":package-srcs",
         "//pkg/kubelet/cm/cpumanager:all-srcs",
         "//pkg/kubelet/cm/cpuset:all-srcs",
-        "//pkg/kubelet/cm/deviceplugin:all-srcs",
+        "//pkg/kubelet/cm/devicemanager:all-srcs",
         "//pkg/kubelet/cm/util:all-srcs",
     ],
     tags = ["automanaged"],

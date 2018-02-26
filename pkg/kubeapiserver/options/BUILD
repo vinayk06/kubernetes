@@ -10,7 +10,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "admission.go",
-        "api_enablement.go",
         "authentication.go",
         "authorization.go",
         "cloudprovider.go",
@@ -45,7 +44,6 @@ go_library(
         "//plugin/pkg/admission/noderestriction:go_default_library",
         "//plugin/pkg/admission/persistentvolume/label:go_default_library",
         "//plugin/pkg/admission/persistentvolume/resize:go_default_library",
-        "//plugin/pkg/admission/persistentvolumeclaim/pvcprotection:go_default_library",
         "//plugin/pkg/admission/podnodeselector:go_default_library",
         "//plugin/pkg/admission/podpreset:go_default_library",
         "//plugin/pkg/admission/podtolerationrestriction:go_default_library",
@@ -54,6 +52,7 @@ go_library(
         "//plugin/pkg/admission/security/podsecuritypolicy:go_default_library",
         "//plugin/pkg/admission/securitycontext/scdeny:go_default_library",
         "//plugin/pkg/admission/serviceaccount:go_default_library",
+        "//plugin/pkg/admission/storage/storageobjectinuseprotection:go_default_library",
         "//plugin/pkg/admission/storageclass/setdefault:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/pborman/uuid:go_default_library",
@@ -69,7 +68,6 @@ go_library(
         "//vendor/k8s.io/apiserver/pkg/admission/plugin/webhook/validating:go_default_library",
         "//vendor/k8s.io/apiserver/pkg/server:go_default_library",
         "//vendor/k8s.io/apiserver/pkg/server/options:go_default_library",
-        "//vendor/k8s.io/apiserver/pkg/util/flag:go_default_library",
         "//vendor/k8s.io/client-go/informers:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
@@ -95,6 +93,5 @@ go_test(
         "storage_versions_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/kubeapiserver/options",
     deps = ["//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library"],
 )

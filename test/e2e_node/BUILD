@@ -1,10 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load(
-    "@io_bazel_rules_go//go:def.bzl",
-    "go_library",
-    "go_test",
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -28,17 +24,18 @@ go_library(
         "//conditions:default": [],
     }),
     importpath = "k8s.io/kubernetes/test/e2e_node",
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1/pod:go_default_library",
         "//pkg/features:go_default_library",
         "//pkg/kubelet/apis/cri:go_default_library",
-        "//pkg/kubelet/apis/cri/v1alpha1/runtime:go_default_library",
-        "//pkg/kubelet/apis/deviceplugin/v1alpha:go_default_library",
+        "//pkg/kubelet/apis/cri/runtime/v1alpha2:go_default_library",
+        "//pkg/kubelet/apis/deviceplugin/v1beta1:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig/scheme:go_default_library",
-        "//pkg/kubelet/apis/kubeletconfig/v1alpha1:go_default_library",
+        "//pkg/kubelet/apis/kubeletconfig/v1beta1:go_default_library",
         "//pkg/kubelet/apis/stats/v1alpha1:go_default_library",
-        "//pkg/kubelet/cm/deviceplugin:go_default_library",
+        "//pkg/kubelet/cm/devicemanager:go_default_library",
         "//pkg/kubelet/metrics:go_default_library",
         "//pkg/kubelet/remote:go_default_library",
         "//test/e2e/common:go_default_library",
@@ -54,6 +51,7 @@ go_library(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/prometheus/common/model:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -86,6 +84,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "apparmor_test.go",
+        "container_log_rotation_test.go",
         "cpu_manager_test.go",
         "critical_pod_test.go",
         "docker_test.go",
@@ -95,11 +94,11 @@ go_test(
         "eviction_test.go",
         "garbage_collector_test.go",
         "gke_environment_test.go",
+        "hugepages_test.go",
         "image_id_test.go",
         "kubelet_test.go",
         "lifecycle_hook_test.go",
         "log_path_test.go",
-        "memory_eviction_test.go",
         "mirror_pod_test.go",
         "pods_container_manager_test.go",
         "runtime_conformance_test.go",
@@ -117,7 +116,6 @@ go_test(
         "//conditions:default": [],
     }),
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/test/e2e_node",
     tags = ["e2e"],
     deps = [
         "//pkg/api/v1/node:go_default_library",
@@ -125,7 +123,7 @@ go_test(
         "//pkg/features:go_default_library",
         "//pkg/kubelet:go_default_library",
         "//pkg/kubelet/apis/cri:go_default_library",
-        "//pkg/kubelet/apis/cri/v1alpha1/runtime:go_default_library",
+        "//pkg/kubelet/apis/cri/runtime/v1alpha2:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig:go_default_library",
         "//pkg/kubelet/apis/stats/v1alpha1:go_default_library",
         "//pkg/kubelet/cm:go_default_library",
@@ -135,6 +133,7 @@ go_test(
         "//pkg/kubelet/images:go_default_library",
         "//pkg/kubelet/kubeletconfig:go_default_library",
         "//pkg/kubelet/kubeletconfig/status:go_default_library",
+        "//pkg/kubelet/logs:go_default_library",
         "//pkg/kubelet/metrics:go_default_library",
         "//pkg/kubelet/types:go_default_library",
         "//pkg/security/apparmor:go_default_library",
@@ -210,4 +209,5 @@ filegroup(
         "//test/e2e_node/system:all-srcs",
     ],
     tags = ["automanaged"],
+    visibility = ["//visibility:public"],
 )

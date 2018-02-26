@@ -53,6 +53,7 @@ var cloudproviders = []string{
 	"azure",
 	"cloudstack",
 	"gce",
+	"external", // Support for out-of-tree cloud providers
 	"openstack",
 	"ovirt",
 	"photon",
@@ -71,7 +72,9 @@ func ValidateMasterConfiguration(c *kubeadm.MasterConfiguration) field.ErrorList
 	allErrs = append(allErrs, ValidateCloudProvider(c.CloudProvider, field.NewPath("cloudprovider"))...)
 	allErrs = append(allErrs, ValidateAuthorizationModes(c.AuthorizationModes, field.NewPath("authorization-modes"))...)
 	allErrs = append(allErrs, ValidateNetworking(&c.Networking, field.NewPath("networking"))...)
-	allErrs = append(allErrs, ValidateAPIServerCertSANs(c.APIServerCertSANs, field.NewPath("cert-altnames"))...)
+	allErrs = append(allErrs, ValidateCertSANs(c.APIServerCertSANs, field.NewPath("api-server-cert-altnames"))...)
+	allErrs = append(allErrs, ValidateCertSANs(c.Etcd.ServerCertSANs, field.NewPath("etcd-server-cert-altnames"))...)
+	allErrs = append(allErrs, ValidateCertSANs(c.Etcd.PeerCertSANs, field.NewPath("etcd-peer-cert-altnames"))...)
 	allErrs = append(allErrs, ValidateAbsolutePath(c.CertificatesDir, field.NewPath("certificates-dir"))...)
 	allErrs = append(allErrs, ValidateNodeName(c.NodeName, field.NewPath("node-name"))...)
 	allErrs = append(allErrs, ValidateToken(c.Token, field.NewPath("token"))...)
@@ -227,8 +230,8 @@ func ValidateToken(t string, fldPath *field.Path) field.ErrorList {
 	return allErrs
 }
 
-// ValidateAPIServerCertSANs validates alternative names
-func ValidateAPIServerCertSANs(altnames []string, fldPath *field.Path) field.ErrorList {
+// ValidateCertSANs validates alternative names
+func ValidateCertSANs(altnames []string, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for _, altname := range altnames {
 		if len(validation.IsDNS1123Subdomain(altname)) != 0 && net.ParseIP(altname) == nil {
@@ -350,7 +353,7 @@ func ValidateAPIEndpoint(c *kubeadm.MasterConfiguration, fldPath *field.Path) fi
 
 	endpoint, err := kubeadmutil.GetMasterEndpoint(c)
 	if err != nil {
-		allErrs = append(allErrs, field.Invalid(fldPath, endpoint, "Invalid API Endpoint"))
+		allErrs = append(allErrs, field.Invalid(fldPath, endpoint, err.Error()))
 	}
 	return allErrs
 }

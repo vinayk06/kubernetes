@@ -23,7 +23,6 @@ go_library(
         "gce_disks.go",
         "gce_firewall.go",
         "gce_forwardingrule.go",
-        "gce_forwardingrule_fakes.go",
         "gce_healthchecks.go",
         "gce_instancegroup.go",
         "gce_instances.go",
@@ -103,9 +102,10 @@ go_test(
         "metrics_test.go",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/cloudprovider/providers/gce",
     deps = [
         "//pkg/cloudprovider:go_default_library",
+        "//pkg/cloudprovider/providers/gce/cloud:go_default_library",
+        "//pkg/cloudprovider/providers/gce/cloud/mock:go_default_library",
         "//pkg/kubelet/apis:go_default_library",
         "//vendor/github.com/stretchr/testify/assert:go_default_library",
         "//vendor/github.com/stretchr/testify/require:go_default_library",
@@ -116,6 +116,7 @@ go_test(
         "//vendor/google.golang.org/api/googleapi:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
     ],
 )

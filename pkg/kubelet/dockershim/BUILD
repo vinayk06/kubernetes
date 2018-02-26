@@ -15,6 +15,7 @@ go_library(
         "docker_container.go",
         "docker_image.go",
         "docker_legacy_service.go",
+        "docker_logs.go",
         "docker_sandbox.go",
         "docker_service.go",
         "docker_streaming.go",
@@ -84,7 +85,7 @@ go_library(
     importpath = "k8s.io/kubernetes/pkg/kubelet/dockershim",
     deps = [
         "//pkg/credentialprovider:go_default_library",
-        "//pkg/kubelet/apis/cri/v1alpha1/runtime:go_default_library",
+        "//pkg/kubelet/apis/cri/runtime/v1alpha2:go_default_library",
         "//pkg/kubelet/apis/kubeletconfig:go_default_library",
         "//pkg/kubelet/cm:go_default_library",
         "//pkg/kubelet/container:go_default_library",
@@ -123,7 +124,14 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
         "//vendor/k8s.io/client-go/tools/remotecommand:go_default_library",
         "//vendor/k8s.io/utils/exec:go_default_library",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//pkg/features:go_default_library",
+            "//pkg/kubelet/winstats:go_default_library",
+            "//vendor/k8s.io/apiserver/pkg/util/feature:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 go_test(
@@ -148,9 +156,8 @@ go_test(
     data = [
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/kubelet/dockershim",
     deps = [
-        "//pkg/kubelet/apis/cri/v1alpha1/runtime:go_default_library",
+        "//pkg/kubelet/apis/cri/runtime/v1alpha2:go_default_library",
         "//pkg/kubelet/container:go_default_library",
         "//pkg/kubelet/container/testing:go_default_library",
         "//pkg/kubelet/dockershim/libdocker:go_default_library",

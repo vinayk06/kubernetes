@@ -75,11 +75,10 @@ var (
 func NewCmdExposeService(f cmdutil.Factory, out io.Writer) *cobra.Command {
 	options := &resource.FilenameOptions{}
 
-	validArgs, argAliases := []string{}, []string{}
+	validArgs := []string{}
 	resources := regexp.MustCompile(`\s*,`).Split(exposeResources, -1)
 	for _, r := range resources {
 		validArgs = append(validArgs, strings.Fields(r)[0])
-		argAliases = kubectl.ResourceAliases(validArgs)
 	}
 
 	cmd := &cobra.Command{
@@ -93,7 +92,7 @@ func NewCmdExposeService(f cmdutil.Factory, out io.Writer) *cobra.Command {
 			cmdutil.CheckErr(err)
 		},
 		ValidArgs:  validArgs,
-		ArgAliases: argAliases,
+		ArgAliases: kubectl.ResourceAliases(validArgs),
 	}
 	cmdutil.AddPrinterFlags(cmd)
 	cmd.Flags().String("generator", "service/v2", i18n.T("The name of the API generator to use. There are 2 generators: 'service/v1' and 'service/v2'. The only difference between them is that service port in v1 is named 'default', while it is left unnamed in v2. Default is 'service/v2'."))
@@ -231,7 +230,7 @@ func RunExpose(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []stri
 		}
 
 		if inline := cmdutil.GetFlagString(cmd, "overrides"); len(inline) > 0 {
-			codec := runtime.NewCodec(f.JSONEncoder(), f.Decoder(true))
+			codec := runtime.NewCodec(cmdutil.InternalVersionJSONEncoder(), cmdutil.InternalVersionDecoder())
 			object, err = cmdutil.Merge(codec, object, inline)
 			if err != nil {
 				return err
@@ -242,7 +241,7 @@ func RunExpose(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []stri
 			ObjectTyper:  typer,
 			RESTMapper:   mapper,
 			ClientMapper: resource.ClientMapperFunc(f.ClientForMapping),
-			Decoder:      f.Decoder(true),
+			Decoder:      cmdutil.InternalVersionDecoder(),
 		}
 		info, err = resourceMapper.InfoForObject(object, nil)
 		if err != nil {
@@ -256,12 +255,12 @@ func RunExpose(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []stri
 		info.Refresh(object, true)
 		if cmdutil.GetDryRunFlag(cmd) {
 			if len(cmdutil.GetFlagString(cmd, "output")) > 0 {
-				return f.PrintObject(cmd, false, mapper, object, out)
+				return cmdutil.PrintObject(cmd, object, out)
 			}
-			f.PrintSuccess(mapper, false, out, info.Mapping.Resource, info.Name, true, "exposed")
+			cmdutil.PrintSuccess(false, out, info.Object, true, "exposed")
 			return nil
 		}
-		if err := kubectl.CreateOrUpdateAnnotation(cmdutil.GetFlagBool(cmd, cmdutil.ApplyAnnotationsFlag), info, f.JSONEncoder()); err != nil {
+		if err := kubectl.CreateOrUpdateAnnotation(cmdutil.GetFlagBool(cmd, cmdutil.ApplyAnnotationsFlag), info, cmdutil.InternalVersionJSONEncoder()); err != nil {
 			return err
 		}
 
@@ -272,10 +271,10 @@ func RunExpose(f cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []stri
 		}
 
 		if len(cmdutil.GetFlagString(cmd, "output")) > 0 {
-			return f.PrintObject(cmd, false, mapper, object, out)
+			return cmdutil.PrintObject(cmd, object, out)
 		}
 
-		f.PrintSuccess(mapper, false, out, info.Mapping.Resource, info.Name, false, "exposed")
+		cmdutil.PrintSuccess(false, out, info.Object, false, "exposed")
 		return nil
 	})
 	if err != nil {

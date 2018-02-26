@@ -30,7 +30,6 @@ go_library(
         "//pkg/apis/extensions:go_default_library",
         "//pkg/client/clientset_generated/internalclientset:go_default_library",
         "//pkg/client/clientset_generated/internalclientset/typed/core/internalversion:go_default_library",
-        "//pkg/client/unversioned:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/kubectl:go_default_library",
         "//pkg/kubectl/categories:go_default_library",
@@ -98,7 +97,6 @@ go_test(
         "//api/swagger-spec",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/kubectl/cmd/util",
     visibility = [
         "//build/visible_to:COMMON_testing",
     ],

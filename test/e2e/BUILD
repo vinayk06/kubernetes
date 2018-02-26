@@ -10,7 +10,6 @@ go_test(
     name = "go_default_test",
     srcs = ["e2e_test.go"],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/test/e2e",
     tags = ["e2e"],
     deps = [
         "//test/e2e/apimachinery:go_default_library",
@@ -23,7 +22,6 @@ go_test(
         "//test/e2e/kubectl:go_default_library",
         "//test/e2e/lifecycle:go_default_library",
         "//test/e2e/lifecycle/bootstrap:go_default_library",
-        "//test/e2e/multicluster:go_default_library",
         "//test/e2e/network:go_default_library",
         "//test/e2e/node:go_default_library",
         "//test/e2e/scalability:go_default_library",
@@ -109,7 +107,6 @@ filegroup(
         "//test/e2e/kubectl:all-srcs",
         "//test/e2e/lifecycle:all-srcs",
         "//test/e2e/manifest:all-srcs",
-        "//test/e2e/multicluster:all-srcs",
         "//test/e2e/network:all-srcs",
         "//test/e2e/node:all-srcs",
         "//test/e2e/perftype:all-srcs",

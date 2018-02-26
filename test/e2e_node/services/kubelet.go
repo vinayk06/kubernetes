@@ -38,7 +38,7 @@ import (
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig"
 	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig/scheme"
-	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig/v1alpha1"
+	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig/v1beta1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e_node/builder"
 )
@@ -77,8 +77,7 @@ func init() {
 	flag.Var(&kubeletArgs, "kubelet-flags", "Kubelet flags passed to kubelet, this will override default kubelet flags in the test. Flags specified in multiple kubelet-flags will be concatenate.")
 	flag.BoolVar(&kubeletContainerized, "kubelet-containerized", false, "Run kubelet in a docker container")
 	flag.StringVar(&hyperkubeImage, "hyperkube-image", "", "Docker image with containerized kubelet")
-	flag.BoolVar(&genKubeletConfigFile, "generate-kubelet-config-file", false, "The test runner will generate a Kubelet config file containing test defaults instead of passing default flags to the Kubelet. "+
-		"If you use this test framework feature, ensure that the KubeletConfigFile feature gate is enabled.")
+	flag.BoolVar(&genKubeletConfigFile, "generate-kubelet-config-file", true, "The test runner will generate a Kubelet config file containing test defaults instead of passing default flags to the Kubelet.")
 }
 
 // RunKubelet starts kubelet and waits for termination signal. Once receives the
@@ -116,7 +115,7 @@ func (e *E2EServices) startKubelet() (*server, error) {
 	glog.Info("Starting kubelet")
 
 	// set feature gates so we can check which features are enabled and pass the appropriate flags
-	utilfeature.DefaultFeatureGate.Set(framework.TestContext.FeatureGates)
+	utilfeature.DefaultFeatureGate.SetFromMap(framework.TestContext.FeatureGates)
 
 	// Build kubeconfig
 	kubeconfigPath, err := createKubeconfigCWD()
@@ -130,12 +129,12 @@ func (e *E2EServices) startKubelet() (*server, error) {
 		return nil, err
 	}
 
-	// Create pod manifest path
-	manifestPath, err := createPodManifestDirectory()
+	// Create pod directory
+	podPath, err := createPodDirectory()
 	if err != nil {
 		return nil, err
 	}
-	e.rmDirs = append(e.rmDirs, manifestPath)
+	e.rmDirs = append(e.rmDirs, podPath)
 	err = createRootDirectory(KubeletRootDirectory)
 	if err != nil {
 		return nil, err
@@ -160,7 +159,7 @@ func (e *E2EServices) startKubelet() (*server, error) {
 	kc.SerializeImagePulls = false
 	kubeletConfigFlags = append(kubeletConfigFlags, "serialize-image-pulls")
 
-	kc.PodManifestPath = manifestPath
+	kc.StaticPodPath = podPath
 	kubeletConfigFlags = append(kubeletConfigFlags, "pod-manifest-path")
 
 	kc.FileCheckFrequency = metav1.Duration{Duration: 10 * time.Second} // Check file frequently so tests won't wait too long
@@ -217,7 +216,7 @@ func (e *E2EServices) startKubelet() (*server, error) {
 				"-v", "/var/lib/docker:/var/lib/docker",
 				"-v", "/var/lib/kubelet:/var/lib/kubelet:rw,rslave",
 				"-v", "/var/log:/var/log",
-				"-v", manifestPath+":"+manifestPath+":rw",
+				"-v", podPath+":"+podPath+":rw",
 			)
 
 			// if we will generate a kubelet config file, we need to mount that path into the container too
@@ -266,9 +265,9 @@ func (e *E2EServices) startKubelet() (*server, error) {
 
 	// Apply test framework feature gates by default. This could also be overridden
 	// by kubelet-flags.
-	if framework.TestContext.FeatureGates != "" {
-		cmdArgs = append(cmdArgs, "--feature-gates", framework.TestContext.FeatureGates)
-		utilflag.NewMapStringBool(&kc.FeatureGates).Set(framework.TestContext.FeatureGates)
+	if len(framework.TestContext.FeatureGates) > 0 {
+		cmdArgs = append(cmdArgs, "--feature-gates", utilflag.NewMapStringBool(&framework.TestContext.FeatureGates).String())
+		kc.FeatureGates = framework.TestContext.FeatureGates
 	}
 
 	if utilfeature.DefaultFeatureGate.Enabled(features.DynamicKubeletConfig) {
@@ -358,7 +357,7 @@ func addKubeletConfigFlags(cmdArgs *[]string, kc *kubeletconfig.KubeletConfigura
 // writeKubeletConfigFile writes the kubelet config file based on the args and returns the filename
 func writeKubeletConfigFile(internal *kubeletconfig.KubeletConfiguration, path string) error {
 	// extract the KubeletConfiguration and convert to versioned
-	versioned := &v1alpha1.KubeletConfiguration{}
+	versioned := &v1beta1.KubeletConfiguration{}
 	scheme, _, err := scheme.NewSchemeAndCodecs()
 	if err != nil {
 		return err
@@ -398,18 +397,18 @@ func newKubeletConfigJSONEncoder() (runtime.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("unsupported media type %q", mediaType)
 	}
-	return kubeletCodecs.EncoderForVersion(info.Serializer, v1alpha1.SchemeGroupVersion), nil
+	return kubeletCodecs.EncoderForVersion(info.Serializer, v1beta1.SchemeGroupVersion), nil
 }
 
-// createPodManifestDirectory creates pod manifest directory.
-func createPodManifestDirectory() (string, error) {
+// createPodDirectory creates pod directory.
+func createPodDirectory() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current working directory: %v", err)
 	}
-	path, err := ioutil.TempDir(cwd, "pod-manifest")
+	path, err := ioutil.TempDir(cwd, "static-pods")
 	if err != nil {
-		return "", fmt.Errorf("failed to create static pod manifest directory: %v", err)
+		return "", fmt.Errorf("failed to create static pod directory: %v", err)
 	}
 	return path, nil
 }

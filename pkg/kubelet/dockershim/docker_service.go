@@ -28,7 +28,7 @@ import (
 	"golang.org/x/net/context"
 
 	"k8s.io/api/core/v1"
-	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
+	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig"
 	kubecm "k8s.io/kubernetes/pkg/kubelet/cm"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
@@ -55,8 +55,6 @@ const (
 	namespaceModeHost = "host"
 
 	dockerNetNSFmt = "/proc/%v/ns/net"
-
-	defaultSeccompProfile = "unconfined"
 
 	// Internal docker labels used to identify whether a container is a sandbox
 	// or a regular container.
@@ -152,7 +150,7 @@ func (p *portMappingGetter) GetPodPortMappings(containerID string) ([]*hostport.
 }
 
 // dockerNetworkHost implements network.Host by wrapping the legacy host passed in by the kubelet
-// and dockerServices which implementes the rest of the network host interfaces.
+// and dockerServices which implements the rest of the network host interfaces.
 // The legacy host methods are slated for deletion.
 type dockerNetworkHost struct {
 	network.LegacyHost

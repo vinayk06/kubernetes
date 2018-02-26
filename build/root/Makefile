@@ -123,7 +123,7 @@ verify:
 	@echo "$$VERIFY_HELP_INFO"
 else
 verify: verify_generated_files
-	KUBE_VERIFY_GIT_BRANCH=$(BRANCH) hack/make-rules/verify.sh -v
+	KUBE_VERIFY_GIT_BRANCH=$(BRANCH) hack/make-rules/verify.sh
 endif
 
 define QUICK_VERIFY_HELP_INFO
@@ -138,7 +138,7 @@ quick-verify:
 	@echo "$$QUICK_VERIFY_HELP_INFO"
 else
 quick-verify: verify_generated_files
-	hack/make-rules/verify.sh -v -Q
+	QUICK=true SILENT=false hack/make-rules/verify.sh
 endif
 
 define UPDATE_HELP_INFO
@@ -149,11 +149,11 @@ define UPDATE_HELP_INFO
 endef
 .PHONY: update
 ifeq ($(PRINT_HELP),y)
-update:
+update: generated_files
 	@echo "$$UPDATE_HELP_INFO"
 else
 update:
-	hack/update-all.sh
+	CALLED_FROM_MAIN_MAKEFILE=1 hack/make-rules/update.sh
 endif
 
 define CHECK_TEST_HELP_INFO
@@ -544,7 +544,7 @@ else
 # We don't want to build any of the release artifacts when running tests.
 # Some things in vendor don't build due to empty target lists for cross-platform rules.
 bazel-test:
-	bazel test --build_tag_filters=-e2e,-integration --test_tag_filters=-e2e,-integration --flaky_test_attempts=3 -- \
+	bazel test --config=unit -- \
 	  //... \
 	  //hack:verify-all \
 	  -//build/... \
@@ -562,7 +562,7 @@ bazel-test-integration:
 	@echo "$$BAZEL_TEST_INTEGRATION_HELP_INFO"
 else
 bazel-test-integration:
-	bazel test //test/integration/...
+	bazel test --config integration //test/integration/...
 endif
 
 ifeq ($(PRINT_HELP),y)
